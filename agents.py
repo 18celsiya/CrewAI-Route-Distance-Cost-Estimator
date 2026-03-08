@@ -1,7 +1,6 @@
 
 import os
-from crewai import Agent
-from crewai.llm import LLM
+from crewai import Agent, LLM
 from dotenv import load_dotenv
 from tools import get_city_distance
 
