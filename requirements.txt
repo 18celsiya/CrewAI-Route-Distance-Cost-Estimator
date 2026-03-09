@@ -8,3 +8,4 @@ graphh==0.1.2
 groq                # Groq Python SDK to talk to Groq API
 langchain           # Core LangChain framework
 langchain-groq      # Integration layer for Groq in LangChain
+litellm>=1.82.0
