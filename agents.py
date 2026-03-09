@@ -11,20 +11,39 @@ from crewai.memory import Memory # for agent memory
 from tools import get_city_distance # load the tool to get city distance
 import math
 import time
+from groq import Groq # for Groq LLM provider
 
 # Load environment variables from .env file
 load_dotenv()
 
-# LLM configuration - Qroq Compound Mini for all agents
-llm = LLM(
-    provider="groq",
-    model="groq/compound-mini",
-    api_key=os.getenv("GROQ_API_KEY"),
-    base_url="https://api.groq.cloud/v1",
-    temperature=0,
-    max_tokens=500
-)
+# -----------------------------
+# Initialize Groq Client
+# -----------------------------
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+# -----------------------------
+# Wrapper to use Groq with CrewAI Agents
+# -----------------------------
+class GroqLLMWrapper:
+    """Wraps Groq client to mimic CrewAI LLM interface."""
+    def __init__(self, client, max_tokens=500, temperature=0):
+        self.client = client
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+
+    def generate(self, prompt, **kwargs):
+        response = self.client.chat.completions.create(
+            model="moonshotai/kimi-k2-instruct",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=self.max_tokens,
+            temperature=self.temperature
+        )
+        return response.choices[0].message.content
+
+# -----------------------------
+# LLM Instance
+# -----------------------------
+llm = GroqLLMWrapper(client, max_tokens=500, temperature=0)
 
 # ------------------------------------------
 # Memory configuration
