@@ -111,83 +111,58 @@ if mode == 'Single Trip Between Two Cities':
 # Batch Calculation via CSV/Excel
 # =========================================================
 
+# In this mode, users can upload a CSV or Excel file containing multiple trips with starting and destination addresses. The app will process each row, calculate distances and reimbursement costs, and provide a downloadable file with the results.
 if mode == "Multiple trips calculation via CSV/Excel":
 
     file_type = st.selectbox("Select file type:", ['CSV', 'Excel'])
-
+    # File uploader
     upload_file = st.file_uploader(
         f"Upload your {file_type} file:",
         type=['csv', 'xlsx']
     )
 
     if upload_file:
-
+        # Load the file into a DataFrame
         df = pd.read_csv(upload_file) if file_type == 'CSV' else pd.read_excel(upload_file)
 
         st.success("File loaded successfully!")
-
+        
+        # Display the first few rows of the uploaded file
         col1, col2 = st.columns(2)
 
         with col1:
-
-            starting_address_column = st.selectbox(
-                "Select column for starting address:",
-                df.columns
-            )
-
-            distance_unit = st.selectbox(
-                'Distance unit:',
-                ['km', 'miles']
-            ).lower()
-
-            cost_rate_input = st.text_input(
-                "Reimbursement cost per unit distance:",
-                value="200"
-            )
+            # Select columns for starting address, destination address, mode of transport, and cost rate
+            starting_address_column = st.selectbox("Select column for starting address:",  df.columns)
+            # destination address can be either a fixed address or a column in the file
+            distance_unit = st.selectbox('Distance unit:', ['km', 'miles']).lower()
+            # reimbursement cost rate input
+            cost_rate_input = st.text_input("Reimbursement cost per unit distance:", value="200")
 
         with col2:
-
-            destination_option = st.radio(
-                "Destination address option:",
-                ['Single Fixed Address', 'Select Column from File']
-            )
+            destination_option = st.radio("Destination address option:", ['Single Fixed Address', 'Select Column from File'])
 
             if destination_option == 'Single Fixed Address':
-
-                fixed_destination_address = st.text_input(
-                    "Enter destination address:",
-                    value="Chennai"
-                )
-
+                fixed_destination_address = st.text_input("Enter destination address:",value="Chennai")
                 use_destination_column = False
 
             else:
-
-                destination_address_column = st.selectbox(
-                    "Select column for destination address:",
-                    df.columns
-                )
-
+                destination_address_column = st.selectbox( "Select column for destination address:", df.columns)
                 use_destination_column = True
 
-            transport_mode = st.selectbox(
-                "Mode of transport:",
-                ["car", "bike", "foot", "bus", "train", "truck"]
-            )
-
-
+            transport_mode = st.selectbox("Mode of transport:",["car", "bike", "foot", "bus", "train", "truck"])
+         # 
         df['Distance'] = None
         df['Reimbursement Amount'] = None
 
-
+        # Process each row in the DataFrame when the button is clicked
         if st.button("Calculate Distance & Reimbursement"):
-
+            # Create separate crews for distance calculation and cost calculation to avoid memory issues and ensure faster processing since each row is independent and does not require conversation history.
             distance_crew = Crew(
                 agents=[distance_calculator],
                 tasks=[distance_task],
                 verbose=True
             )
-
+            #
             cost_crew = Crew(
                 agents=[travel_agent],
                 tasks=[travel_cost_task],
@@ -195,17 +170,14 @@ if mode == "Multiple trips calculation via CSV/Excel":
             )
 
             progress_bar = st.progress(0)
-
+            # Loop through each row in the DataFrame and calculate distance and reimbursement cost
             total_rows = len(df)
 
             for idx, row in df.iterrows():
-
-                progress_bar.progress((idx + 1) / total_rows)
-
+                progress_bar.progress((idx + 1) / total_rows) # Update progress bar
                 start_val = row[starting_address_column]
-
                 dest_val = row[destination_address_column] if use_destination_column else fixed_destination_address
-
+                # Call the get_city_distance tool to get distance in meters
                 distance_meters = get_city_distance.run(
                     starting_address=start_val,
                     destination_address=dest_val,
@@ -213,12 +185,11 @@ if mode == "Multiple trips calculation via CSV/Excel":
                 )
 
                 if distance_meters is None:
-
                     df.at[idx, "Distance"] = "NA"
                     df.at[idx, "Reimbursement Amount"] = "NA"
                     continue
 
-
+                # Call distance_crew to convert distance to requested unit
                 converted_distance = distance_crew.kickoff({
                     "starting_address": start_val,
                     "destination_address": dest_val,
@@ -226,42 +197,36 @@ if mode == "Multiple trips calculation via CSV/Excel":
                     "unit": distance_unit,
                     "mode_of_transport": transport_mode
                 })
-
-
+                # Call cost_crew to calculate reimbursement cost
                 reimbursement_result = cost_crew.kickoff({
                     "distance_with_units": str(converted_distance),
                     "cost_rate": cost_rate_input,
                     "country": "India"
                 })
 
-
+                # Update the DataFrame with calculated distance and reimbursement cost
                 df.at[idx, "Distance"] = str(converted_distance)
                 df.at[idx, "Reimbursement Amount"] = str(reimbursement_result)
-
-
             st.success("Processing complete!")
-
 
             # =========================================================
             # Travel Reimbursement Summary
             # =========================================================
-
+            # Calculate total trips, total distance, and total reimbursement cost for summary metrics
             total_trips = len(df)
-
+            # Extract numeric distance values and sum them up for total distance
             total_distance = df["Distance"]\
                 .str.extract(r'([\d\.]+)')[0]\
                 .astype(float)\
                 .sum()
-
+            # Extract numeric reimbursement values and sum them up for total cost
             total_cost = df["Reimbursement Amount"]\
                 .str.replace(r'[^\d.]', '', regex=True)\
                 .astype(float)\
                 .sum()
 
-
             st.markdown("### Travel Reimbursement Summary")
-
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3 = st.columns(3) # Create three columns for summary metrics
 
             with col1:
                 st.metric("Total Trips", total_trips)
@@ -278,31 +243,26 @@ if mode == "Multiple trips calculation via CSV/Excel":
                     f"₹{round(total_cost,2)}"
                 )
 
-
-            # =========================================================
-            # Show Table
-            # =========================================================
-
+            # Display the updated DataFrame with calculated distances and reimbursement costs
             st.dataframe(df)
-
 
             # =========================================================
             # Download Updated File
             # =========================================================
-
+           
             if file_type == 'CSV':
-
+                
                 output_data = df.to_csv(index=False).encode('utf-8')
 
                 st.download_button(
-                    label="Download Results",
+                    label="Download Results", # Button label
                     data=output_data,
                     file_name="reimbursement_results.csv",
-                    mime="text/csv"
+                    mime="text/csv" # MIME type for CSV
                 )
 
             else:
-
+                # For Excel, we need to write the DataFrame to a BytesIO buffer and then provide that buffer for download
                 buffer = io.BytesIO()
 
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:

@@ -4,9 +4,10 @@
 from crewai import Task
 from agents import single_trip_agent, distance_calculator, travel_agent
 
-# ------------------------------
+# ------------------------------------------------------------------
 # Conversation Task
-# ------------------------------
+# ------------------------------------------------------------------
+# This is the main task that handles the entire conversation with the user. It uses the single_trip_agent which has memory enabled to remember previous interactions. The agent will ask for necessary information, use tools to calculate distance, and respond conversationally.
 conversation_task = Task(
     description="""
 User query: {user_input}
@@ -35,9 +36,10 @@ Conversational response that either:
 """
 )
 
-# ------------------------------
+# -----------------------------------------------------------
 # Distance Task
-# ------------------------------
+# -----------------------------------------------------------------
+# This task is responsible for converting the distance obtained from the tool (in meters) to the requested unit (km or miles). It uses the distance_calculator agent which does not have memory enabled since it only performs a specific calculation based on the input provided.
 distance_task = Task(
     description="""
 Convert distance to requested unit.
@@ -60,9 +62,10 @@ Rules:
     expected_output="Distance with units (e.g., '1349.31 km')."
 )
 
-# ------------------------------
+# --------------------------------------------------------------
 # Travel Cost Task
-# ------------------------------
+# -----------------------------------------------------------------------
+# This task calculates the travel reimbursement cost based on the distance and cost rate. It uses the travel_agent which does not have memory enabled since it performs a specific calculation based on the input provided.
 travel_cost_task = Task(
     description="""
 Calculate reimbursement amount.

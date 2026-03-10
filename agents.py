@@ -22,6 +22,7 @@ llm = ChatGroq(
 # Agents
 # -----------------------------
 
+# single_trip_agent is the main agent that handles the conversation with the user, collects necessary information, and uses tools to calculate distance and cost. It has memory enabled to remember previous interactions in the conversation.
 single_trip_agent = Agent(
     role="Trip Distance & Cost Bot",
     goal="Calculate travel distance and cost",
@@ -32,6 +33,7 @@ single_trip_agent = Agent(
     allow_delegation=False
 )
 
+# distance_calculator is a specialized agent that focuses solely on converting distance from meters to the requested unit (km or miles). It does not have memory enabled since it only performs a specific calculation based on the input provided.
 distance_calculator = Agent(
     role="Distance Calculator",
     goal="Convert meters to km or miles",
@@ -45,6 +47,7 @@ distance_calculator = Agent(
     allow_delegation=False
 )
 
+# travel_agent is responsible for calculating the travel reimbursement cost based on the distance and cost rate. It does not have memory enabled since it performs a specific calculation based on the input provided.
 travel_agent = Agent(
     role="Travel Reimbursement Calculator",
     goal="Calculate reimbursement cost from distance",
