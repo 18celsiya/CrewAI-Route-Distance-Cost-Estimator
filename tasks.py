@@ -65,7 +65,7 @@ Rules:
 # ------------------------------
 travel_cost_task = Task(
     description="""
-Calculate travel cost.
+Calculate reimbursement amount.
 
 Inputs:
 - Distance: {distance_with_units}
@@ -74,7 +74,7 @@ Inputs:
 
 Steps:
 1. Extract numeric value from distance.
-2. Multiply distance * cost_rate.
+2. Multiply distance by cost_rate.
 3. Add currency symbol based on country:
    - India → ₹
    - US → $

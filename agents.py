@@ -46,8 +46,8 @@ distance_calculator = Agent(
 )
 
 travel_agent = Agent(
-    role="Travel Cost Calculator",
-    goal="Calculate travel cost from distance",
+    role="Travel Reimbursement Calculator",
+    goal="Calculate reimbursement cost from distance",
     backstory="Multiply numeric distance by cost rate. Add currency symbol based on country. Return only the cost with symbol, e.g., '₹2400'.",
     llm=llm,
     temperature=0,

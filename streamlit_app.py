@@ -112,107 +112,205 @@ if mode == 'Single Trip Between Two Cities':
 # =========================================================
 
 if mode == "Multiple trips calculation via CSV/Excel":
-    file_type = st.selectbox("Select file type:", ['CSV', 'Excel']) # option to select file type for better user experience
-    upload_file = st.file_uploader(f"Upload your {file_type} file:", type=['csv','xlsx']) # accept both csv and excel files for batch processing
+
+    file_type = st.selectbox("Select file type:", ['CSV', 'Excel'])
+
+    upload_file = st.file_uploader(
+        f"Upload your {file_type} file:",
+        type=['csv', 'xlsx']
+    )
 
     if upload_file:
-        df = pd.read_csv(upload_file) if file_type=='CSV' else pd.read_excel(upload_file)
+
+        df = pd.read_csv(upload_file) if file_type == 'CSV' else pd.read_excel(upload_file)
+
         st.success("File loaded successfully!")
 
-        # UI for selecting columns and options
         col1, col2 = st.columns(2)
+
         with col1:
-            starting_address_column = st.selectbox("Select column for starting address:", df.columns)
-            distance_unit = st.selectbox('Distance unit:', ['km','miles']).lower()
-            cost_rate_input = st.text_input("Travel cost per unit distance:", value="200")
+
+            starting_address_column = st.selectbox(
+                "Select column for starting address:",
+                df.columns
+            )
+
+            distance_unit = st.selectbox(
+                'Distance unit:',
+                ['km', 'miles']
+            ).lower()
+
+            cost_rate_input = st.text_input(
+                "Reimbursement cost per unit distance:",
+                value="200"
+            )
 
         with col2:
-            destination_option = st.radio("Destination address option:", ['Single Fixed Address', 'Select Column from File'])
+
+            destination_option = st.radio(
+                "Destination address option:",
+                ['Single Fixed Address', 'Select Column from File']
+            )
+
             if destination_option == 'Single Fixed Address':
-                fixed_destination_address = st.text_input("Enter destination address:", value="Chennai")
+
+                fixed_destination_address = st.text_input(
+                    "Enter destination address:",
+                    value="Chennai"
+                )
+
                 use_destination_column = False
+
             else:
-                destination_address_column = st.selectbox("Select column for destination address:", df.columns)
+
+                destination_address_column = st.selectbox(
+                    "Select column for destination address:",
+                    df.columns
+                )
+
                 use_destination_column = True
-            
-            # Mode of transport selection
-            transport_mode = st.selectbox("Mode of transport:", [
-                "car", "bike", "foot", "bus", "train", "truck"
-            ])
-        
-        # Initialize new columns to st
+
+            transport_mode = st.selectbox(
+                "Mode of transport:",
+                ["car", "bike", "foot", "bus", "train", "truck"]
+            )
+
+
         df['Distance'] = None
-        df['Travel Cost'] = None
-        
-        # Process each row when button is clicked
-        if st.button("Calculate Distance & Travel Cost"):
+        df['Reimbursement Amount'] = None
 
-            # Create crews for distance conversion and cost calculation
-            distance_crew = Crew(agents=[distance_calculator], tasks=[distance_task], verbose=True, memory = None)
-            cost_crew = Crew(agents=[travel_agent], tasks=[travel_cost_task], verbose=True, memory = None)
 
-            # Row-wise processing with progress bar
+        if st.button("Calculate Distance & Reimbursement"):
+
+            distance_crew = Crew(
+                agents=[distance_calculator],
+                tasks=[distance_task],
+                verbose=True
+            )
+
+            cost_crew = Crew(
+                agents=[travel_agent],
+                tasks=[travel_cost_task],
+                verbose=True
+            )
+
+            progress_bar = st.progress(0)
+
+            total_rows = len(df)
+
             for idx, row in df.iterrows():
+
+                progress_bar.progress((idx + 1) / total_rows)
+
                 start_val = row[starting_address_column]
+
                 dest_val = row[destination_address_column] if use_destination_column else fixed_destination_address
 
-                # Get exact distance from tool
                 distance_meters = get_city_distance.run(
                     starting_address=start_val,
                     destination_address=dest_val,
                     mode_of_transport=transport_mode
                 )
 
-                # Ask LLM to convert distance to km/miles
+                if distance_meters is None:
+
+                    df.at[idx, "Distance"] = "NA"
+                    df.at[idx, "Reimbursement Amount"] = "NA"
+                    continue
+
+
                 converted_distance = distance_crew.kickoff({
                     "starting_address": start_val,
                     "destination_address": dest_val,
-                    "distance_in_meters": distance_meters,  # exact number
+                    "distance_in_meters": distance_meters,
                     "unit": distance_unit,
-                    "mode_of_transport": transport_mode  # pass the mode here
+                    "mode_of_transport": transport_mode
                 })
 
-                # 3Calculate travel cost
-                travel_cost_result = cost_crew.kickoff({
-                    "distance_with_units": str(converted_distance),  # "1345.67 km"
+
+                reimbursement_result = cost_crew.kickoff({
+                    "distance_with_units": str(converted_distance),
                     "cost_rate": cost_rate_input,
                     "country": "India"
                 })
 
-                # Store results
+
                 df.at[idx, "Distance"] = str(converted_distance)
-                df.at[idx, "Travel Cost"] = str(travel_cost_result)
+                df.at[idx, "Reimbursement Amount"] = str(reimbursement_result)
+
 
             st.success("Processing complete!")
 
-            # ------------------------------
-            # Highlight invalid distances
-            # ------------------------------
-            def highlight_invalid(val):
-                if val == "NA":
-                    return 'color: red; font-weight:bold'
-                return 'color: #32CD32; font-weight:bold'
-            # Display results with styling
-            st.dataframe(df.style.applymap(highlight_invalid, subset=["Distance"]))
 
-            # Download button for the updated file
-            col_button, col_gif = st.columns([4,1])
-            with col_button:
-                if file_type=='CSV':
-                    output_data = df.to_csv(index=False).encode('utf-8')
-                    file_name = "City_distances_updated.csv"
-                    mime_type = "text/csv" # correct MIME type for CSV
-                else:
-                    buffer = io.BytesIO()
-                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                        df.to_excel(writer, index=False)
-                    output_data = buffer.getvalue()
-                    file_name = "City_distances_updated.xlsx"
-                    mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                # Download button with correct MIME type and file name
+            # =========================================================
+            # Travel Reimbursement Summary
+            # =========================================================
+
+            total_trips = len(df)
+
+            total_distance = df["Distance"]\
+                .str.extract(r'([\d\.]+)')[0]\
+                .astype(float)\
+                .sum()
+
+            total_cost = df["Reimbursement Amount"]\
+                .str.replace(r'[^\d.]', '', regex=True)\
+                .astype(float)\
+                .sum()
+
+
+            st.markdown("### Travel Reimbursement Summary")
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.metric("Total Trips", total_trips)
+
+            with col2:
+                st.metric(
+                    "Total Distance",
+                    f"{round(total_distance,2)} {distance_unit}"
+                )
+
+            with col3:
+                st.metric(
+                    "Total Reimbursement",
+                    f"₹{round(total_cost,2)}"
+                )
+
+
+            # =========================================================
+            # Show Table
+            # =========================================================
+
+            st.dataframe(df)
+
+
+            # =========================================================
+            # Download Updated File
+            # =========================================================
+
+            if file_type == 'CSV':
+
+                output_data = df.to_csv(index=False).encode('utf-8')
+
                 st.download_button(
-                    label="Click to Download",
+                    label="Download Results",
                     data=output_data,
-                    file_name=file_name,
-                    mime=mime_type
+                    file_name="reimbursement_results.csv",
+                    mime="text/csv"
+                )
+
+            else:
+
+                buffer = io.BytesIO()
+
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False)
+
+                st.download_button(
+                    label="Download Results",
+                    data=buffer.getvalue(),
+                    file_name="reimbursement_results.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
