@@ -85,11 +85,11 @@ This project demonstrates several **AI agent concepts**:
 
 ### Agent Collaboration Workflow
 
-User Input (Travel distance & cost query OR multiple trip calculation via CSV/Excel)
+User Input (Travel distance & cost query(bot) OR multiple trip calculation via CSV/Excel)
 
 ↓  
 
-The Bot Agent analyzes the request and decides which workflow to trigger
+The agent analyzes the request and decides which workflow to trigger
 
 ↓  
 
